@@ -18,7 +18,7 @@ module Rack
       def initialize(env, host, options={})
         self.env = env
         self.host = host
-        self.ignore = Array(options[:ignore])
+        self.ignore = options[:ignore]
         self.conditions = Array(options[:if])
         self.cache_control = options[:cache_control]
       end
@@ -62,10 +62,14 @@ module Rack
       end
 
       def ignored?
-        return false if ignore.empty?
+        return ignore.call(rack_request) if ignore.is_a?(Proc)
 
-        ignore.include?(request_uri.host) ||
-          any_match?(ignore, request_uri.host)
+        ignore_options = Array(ignore)
+
+        return false if ignore_options.empty?
+
+        ignore_options.include?(request_uri.host) ||
+          any_match?(ignore_options, request_uri.host)
       end
 
       def known?
@@ -79,7 +83,11 @@ module Rack
       end
 
       def request_uri
-        @request_uri ||= Addressable::URI.parse(Rack::Request.new(env).url)
+        @request_uri ||= Addressable::URI.parse(rack_request.url)
+      end
+
+      def rack_request
+        @rack_request ||= Rack::Request.new(env)
       end
     end
   end
